@@ -1,18 +1,1 @@
-# Zig build artifacts
-.zig-cache/
-zig-out/
-
-# macOS
-.DS_Store
-
-# Editor/IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
+out.txt

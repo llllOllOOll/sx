@@ -25,6 +25,6 @@ pub fn main(init: std.process.Init) !void {
     sx.println("Enter name and age:", .{});
     var name: []u8 = undefined;
     var age: u32 = undefined;
-    try sx.stdin.scanf("%s %d", .{ &name, &age });
+    try sx.stdin.scanf("{s} {d}", .{ &name, &age });
     sx.println("name={s} age={d}", .{ name, age });
 }

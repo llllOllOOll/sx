@@ -76,7 +76,7 @@ try sx.stdin.scanln(.{ &a, &b });
 // scanf — explicit format, like C/Go
 var name: []u8 = undefined;
 var age: u32 = undefined;
-try sx.stdin.scanf("%s %d", .{ &name, &age });
+try sx.stdin.scanf("{s} {d}", .{ &name, &age });
 ```
 
 ### Random
@@ -176,7 +176,7 @@ pub fn main() !void {
     sx.println("Enter name and age:", .{});
     var name: []u8 = undefined;
     var age: u32 = undefined;
-    try sx.stdin.scanf("%s %d", .{ &name, &age });
+    try sx.stdin.scanf("{s} {d}", .{ &name, &age });
     sx.println("Hello {s}, you are {d} years old!", .{ name, age });
 }
 ```
