@@ -62,8 +62,21 @@ sx.println("Hello, {s}!", .{"world"});
 
 ### stdin
 ```zig
-const n = try sx.stdin.readInt(u8);       // read an integer
-const line = try sx.stdin.readLine();      // read a line — null on EOF
+const n = try sx.stdin.readInt(u8);         // read a single integer
+const line = try sx.stdin.readLine();        // read a line — null on EOF
+
+// scan — reads values separated by any whitespace (space or newline)
+var a: f32 = undefined;
+var b: f32 = undefined;
+try sx.stdin.scan(.{ &a, &b });
+
+// scanln — reads values from the same line only, stops at newline
+try sx.stdin.scanln(.{ &a, &b });
+
+// scanf — explicit format, like C/Go
+var name: []u8 = undefined;
+var age: u32 = undefined;
+try sx.stdin.scanf("%s %d", .{ &name, &age });
 ```
 
 ### Random
@@ -152,6 +165,19 @@ pub fn main(init: std.process.Init) !void {
     else
         a / b;
     sx.println("Result: {d:.2}", .{result});
+}
+```
+
+### Scan input
+```zig
+const sx = @import("sx");
+
+pub fn main() !void {
+    sx.println("Enter name and age:", .{});
+    var name: []u8 = undefined;
+    var age: u32 = undefined;
+    try sx.stdin.scanf("%s %d", .{ &name, &age });
+    sx.println("Hello {s}, you are {d} years old!", .{ name, age });
 }
 ```
 
