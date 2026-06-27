@@ -82,6 +82,17 @@ pub const stdin = struct {
         }
     }
 
+    pub fn scanln(tuple: anytype) !void {
+        const info = @typeInfo(@TypeOf(tuple));
+        const s = info.@"struct";
+        inline for (s.field_names, s.field_types) |name, field_type| {
+            const ptr: field_type = @field(tuple, name);
+            const T = @typeInfo(field_type).pointer.child;
+            const token = try readTokenLine();
+            ptr.* = try parseToken(T, token);
+        }
+    }
+
     fn readToken() ![]u8 {
         const reader = getStdinReader();
         var buf: [1024]u8 = undefined;
@@ -109,6 +120,43 @@ pub const stdin = struct {
                 i += 1;
             }
         }
+        const arena = arena_allocator.allocator();
+        const result = try arena.alloc(u8, i);
+        @memcpy(result, buf[0..i]);
+        return result;
+    }
+
+    fn readTokenLine() ![]u8 {
+        const reader = getStdinReader();
+        var buf: [1024]u8 = undefined;
+        var i: usize = 0;
+        while (true) {
+            const byte = reader.interface.peekByte() catch |err| switch (err) {
+                error.EndOfStream => {
+                    if (i == 0) return error.EndOfStream;
+                    break;
+                },
+                else => |e| return e,
+            };
+            if (byte == '\n') {
+                if (i == 0) return error.EndOfLine;
+                break;
+            }
+            if (byte == '\r') {
+                reader.interface.toss(1);
+                continue;
+            }
+            if (byte == ' ' or byte == '\t') {
+                if (i > 0) break;
+                reader.interface.toss(1);
+            } else {
+                if (i >= buf.len) return error.Overflow;
+                reader.interface.toss(1);
+                buf[i] = byte;
+                i += 1;
+            }
+        }
+        if (i == 0) return error.EndOfLine;
         const arena = arena_allocator.allocator();
         const result = try arena.alloc(u8, i);
         @memcpy(result, buf[0..i]);
