@@ -172,10 +172,10 @@ pub const stdin = struct {
             var vi: usize = 0;
             var i: usize = 0;
             while (i < fmt.len) {
-                if (fmt[i] == '%' and i + 1 < fmt.len and fmt[i + 1] != '%') {
+                if (fmt[i] == '{' and i + 2 < fmt.len and fmt[i + 2] == '}' and fmt[i + 1] != '}') {
                     arr[vi] = fmt[i + 1];
                     vi += 1;
-                    i += 1;
+                    i += 2;
                 }
                 i += 1;
             }
@@ -208,7 +208,7 @@ pub const stdin = struct {
                     const byte = try readByte();
                     ptr.* = byte;
                 },
-                else => @compileError("scanf: unknown verb '%" ++ [1]u8{verb} ++ "'"),
+                else => @compileError("scanf: unknown verb '{" ++ [1]u8{verb} ++ "}'"),
             }
         }
     }
@@ -222,13 +222,18 @@ pub const stdin = struct {
 
     fn scanUntilLiteral(fmt: []const u8, pos: *usize) !void {
         while (pos.* < fmt.len) {
-            if (fmt[pos.*] == '%') {
-                if (pos.* + 1 < fmt.len and fmt[pos.* + 1] == '%') {
+            if (fmt[pos.*] == '{') {
+                if (pos.* + 2 < fmt.len and fmt[pos.* + 2] == '}' and fmt[pos.* + 1] != '}') {
+                    return;
+                }
+                if (pos.* + 1 < fmt.len and fmt[pos.* + 1] == '{') {
                     const byte = try readByte();
-                    if (byte != '%') return error.FormatMismatch;
+                    if (byte != '{') return error.FormatMismatch;
                     pos.* += 2;
                 } else {
-                    return;
+                    const byte = try readByte();
+                    if (byte != '{') return error.FormatMismatch;
+                    pos.* += 1;
                 }
             } else if (std.ascii.isWhitespace(fmt[pos.*])) {
                 while (pos.* < fmt.len and std.ascii.isWhitespace(fmt[pos.*])) {
@@ -315,6 +320,44 @@ pub const LinesIterator = struct {
     }
 };
 
+pub const FileWriter = struct {
+    file: std.Io.File,
+    buf: [4096]u8,
+    writer: std.Io.File.Writer,
+    closed: bool,
+
+    fn init(file: std.Io.File) FileWriter {
+        var self: FileWriter = undefined;
+        self.file = file;
+        self.buf = undefined;
+        self.writer = std.Io.File.Writer.initStreaming(file, io, &self.buf);
+        self.closed = false;
+        return self;
+    }
+
+    pub fn write(self: *FileWriter, data: []const u8) !void {
+        try self.writer.interface.writeAll(data);
+        try self.writer.interface.flush();
+    }
+
+    pub fn print(self: *FileWriter, comptime fmt: []const u8, fmt_args: anytype) !void {
+        try self.writer.interface.print(fmt, fmt_args);
+        try self.writer.interface.flush();
+    }
+
+    pub fn writeln(self: *FileWriter, data: []const u8) !void {
+        try self.write(data);
+        try self.write("\n");
+    }
+
+    pub fn close(self: *FileWriter) void {
+        if (self.closed) return;
+        self.closed = true;
+        self.writer.interface.flush() catch {};
+        self.file.close(io);
+    }
+};
+
 pub const fs = struct {
     pub fn read(path: []const u8) ![]u8 {
         ensureInit();
@@ -337,6 +380,12 @@ pub const fs = struct {
             .file = file,
             .reader = std.Io.File.Reader.initStreaming(file, io, reader_buf),
         };
+    }
+
+    pub fn open(path: []const u8) !FileWriter {
+        ensureInit();
+        const file = try std.Io.Dir.cwd().createFile(io, path, .{});
+        return FileWriter.init(file);
     }
 };
 
