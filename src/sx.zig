@@ -81,10 +81,13 @@ pub const LinesIterator = struct {
     pub fn next(self: *LinesIterator) !?[]u8 {
         if (self.done) return null;
         var i: usize = 0;
+        var hit_newline: bool = false;
         while (i < self.line_buf.len) {
-            const byte = self.reader.interface.peekByte() catch |err| switch (err) {
+            var byte_buf: [1]u8 = undefined;
+            var slices = [_][]u8{&byte_buf};
+            const nread = self.reader.interface.readVec(&slices) catch |err| switch (err) {
                 error.EndOfStream => {
-                    if (i == 0) {
+                    if (i == 0 and !hit_newline) {
                         self.file.close(io);
                         self.done = true;
                         return null;
@@ -93,13 +96,23 @@ pub const LinesIterator = struct {
                 },
                 else => |e| return e,
             };
-            self.reader.interface.toss(1);
-            if (byte == '\n') break;
-            if (byte == '\r') continue;
-            self.line_buf[i] = byte;
+            if (nread == 0) {
+                if (i == 0 and !hit_newline) {
+                    self.file.close(io);
+                    self.done = true;
+                    return null;
+                }
+                break;
+            }
+            if (byte_buf[0] == '\n') {
+                hit_newline = true;
+                break;
+            }
+            if (byte_buf[0] == '\r') continue;
+            self.line_buf[i] = byte_buf[0];
             i += 1;
         }
-        if (i == 0) {
+        if (i == 0 and !hit_newline) {
             self.file.close(io);
             self.done = true;
             return null;
