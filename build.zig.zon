@@ -1,0 +1,11 @@
+.{
+    .name = .sx,
+    .version = "0.1.0",
+    .fingerprint = 0x1b15c1c44b33cc3c,
+    .paths = .{
+        "src",
+        "build.zig",
+        "build.zig.zon",
+        "README.md",
+    },
+}

@@ -2,6 +2,36 @@
 
 High-level helpers for Zig CLI programs: stdin, stdout, filesystem, args and random — without the ceremony.
 
+## Quick install
+
+In your project, add `sx` as a dependency:
+
+```bash
+zig fetch --save git+https://github.com/llllOllOOll/sx
+```
+
+This adds the following to your `build.zig.zon`:
+
+```zig
+.{
+    .dependencies = .{
+        .sx = .{
+            .url = "git+https://github.com/llllOllOOll/sx",
+            .hash = "...",
+        },
+    },
+}
+```
+
+Then in your `build.zig`:
+
+```zig
+const sx_module = b.dependency("sx", .{
+    .target = target,
+    .optimize = optimize,
+}).module("sx");
+```
+
 ## Why sx exists
 
 I love Zig. I use it in every project I work on, and I deeply respect its philosophy — explicit memory management, no hidden allocations, IO as an interface. These are the right decisions for systems programming.
