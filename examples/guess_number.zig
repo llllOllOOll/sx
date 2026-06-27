@@ -4,7 +4,10 @@ pub fn main() !void {
     const n = sx.rand.int(u8, 1, 100);
     sx.println("Guess a number (1-100):", .{});
     while (true) {
-        const guess = try sx.stdin.readInt(u8);
+        const guess = sx.stdin.readInt(u8) catch |err| switch (err) {
+            error.EndOfStream => break,
+            else => |e| return e,
+        };
         if (guess == n) {
             sx.println("Correct!", .{});
             break;
