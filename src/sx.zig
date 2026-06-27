@@ -70,6 +70,64 @@ pub const stdin = struct {
         @memcpy(result, line_buf[0..i]);
         return result;
     }
+
+    pub fn scan(tuple: anytype) !void {
+        const info = @typeInfo(@TypeOf(tuple));
+        const s = info.@"struct";
+        inline for (s.field_names, s.field_types) |name, field_type| {
+            const ptr: field_type = @field(tuple, name);
+            const T = @typeInfo(field_type).pointer.child;
+            const token = try readToken();
+            ptr.* = try parseToken(T, token);
+        }
+    }
+
+    fn readToken() ![]u8 {
+        const reader = getStdinReader();
+        var buf: [1024]u8 = undefined;
+        var i: usize = 0;
+        while (true) {
+            var byte_buf: [1]u8 = undefined;
+            var slices = [_][]u8{&byte_buf};
+            const n = reader.interface.readVec(&slices) catch |err| switch (err) {
+                error.EndOfStream => {
+                    if (i == 0) return error.EndOfStream;
+                    break;
+                },
+                else => |e| return e,
+            };
+            if (n == 0) {
+                if (i == 0) return error.EndOfStream;
+                break;
+            }
+            const byte = byte_buf[0];
+            if (std.ascii.isWhitespace(byte)) {
+                if (i > 0) break;
+            } else {
+                if (i >= buf.len) return error.Overflow;
+                buf[i] = byte;
+                i += 1;
+            }
+        }
+        const arena = arena_allocator.allocator();
+        const result = try arena.alloc(u8, i);
+        @memcpy(result, buf[0..i]);
+        return result;
+    }
+
+    fn parseToken(comptime T: type, token: []u8) !T {
+        switch (@typeInfo(T)) {
+            .int => return std.fmt.parseInt(T, token, 10),
+            .float => return std.fmt.parseFloat(T, token),
+            .pointer => |ptr_info| {
+                if (ptr_info.size == .slice and ptr_info.child == u8) {
+                    return token;
+                }
+                @compileError("unsupported pointer type: " ++ @typeName(T));
+            },
+            else => @compileError("unsupported type: " ++ @typeName(T)),
+        }
+    }
 };
 
 pub const LinesIterator = struct {

@@ -11,6 +11,24 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // example executable
+    const exe_module = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    exe_module.addImport("sx", sx_module);
+    const exe = b.addExecutable(.{
+        .name = "sx-example",
+        .root_module = exe_module,
+    });
+    b.installArtifact(exe);
+
+    const run_cmd = b.addRunArtifact(exe);
+    run_cmd.addPassthruArgs();
+    const run_step = b.step("run", "Run the example");
+    run_step.dependOn(&run_cmd.step);
+
     // test step
     const tests = b.addTest(.{
         .name = "sx-tests",
