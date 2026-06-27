@@ -163,6 +163,94 @@ pub const stdin = struct {
         return result;
     }
 
+    pub fn scanf(comptime fmt: []const u8, tuple: anytype) !void {
+        ensureInit();
+        const fields = @typeInfo(@TypeOf(tuple)).@"struct";
+        const verbs = comptime blk: {
+            const n = fields.field_names.len;
+            var arr: [n]u8 = undefined;
+            var vi: usize = 0;
+            var i: usize = 0;
+            while (i < fmt.len) {
+                if (fmt[i] == '%' and i + 1 < fmt.len and fmt[i + 1] != '%') {
+                    arr[vi] = fmt[i + 1];
+                    vi += 1;
+                    i += 1;
+                }
+                i += 1;
+            }
+            if (vi != n) @compileError("scanf: number of format verbs does not match arguments");
+            break :blk arr;
+        };
+
+        var fmt_pos: usize = 0;
+
+        inline for (fields.field_names, fields.field_types, verbs) |name, field_type, verb| {
+            try scanUntilLiteral(fmt, &fmt_pos);
+
+            const ptr: field_type = @field(tuple, name);
+            const T = @typeInfo(field_type).pointer.child;
+
+            switch (verb) {
+                'd' => {
+                    const token = try readToken();
+                    ptr.* = try std.fmt.parseInt(T, token, 10);
+                },
+                'f' => {
+                    const token = try readToken();
+                    ptr.* = try std.fmt.parseFloat(T, token);
+                },
+                's' => {
+                    const token = try readToken();
+                    ptr.* = token;
+                },
+                'c' => {
+                    const byte = try readByte();
+                    ptr.* = byte;
+                },
+                else => @compileError("scanf: unknown verb '%" ++ [1]u8{verb} ++ "'"),
+            }
+        }
+    }
+
+    fn readByte() !u8 {
+        var byte_buf: [1]u8 = undefined;
+        var slices = [_][]u8{&byte_buf};
+        _ = try getStdinReader().interface.readVec(&slices);
+        return byte_buf[0];
+    }
+
+    fn scanUntilLiteral(fmt: []const u8, pos: *usize) !void {
+        while (pos.* < fmt.len) {
+            if (fmt[pos.*] == '%') {
+                if (pos.* + 1 < fmt.len and fmt[pos.* + 1] == '%') {
+                    const byte = try readByte();
+                    if (byte != '%') return error.FormatMismatch;
+                    pos.* += 2;
+                } else {
+                    return;
+                }
+            } else if (std.ascii.isWhitespace(fmt[pos.*])) {
+                while (pos.* < fmt.len and std.ascii.isWhitespace(fmt[pos.*])) {
+                    pos.* += 1;
+                }
+                const reader = getStdinReader();
+                while (true) {
+                    const byte = reader.interface.peekByte() catch |err| switch (err) {
+                        error.EndOfStream => return,
+                        else => |e| return e,
+                    };
+                    if (!std.ascii.isWhitespace(byte)) break;
+                    reader.interface.toss(1);
+                }
+            } else {
+                const byte = try readByte();
+                if (byte != fmt[pos.*]) return error.FormatMismatch;
+                pos.* += 1;
+            }
+        }
+    }
+
     fn parseToken(comptime T: type, token: []u8) !T {
         switch (@typeInfo(T)) {
             .int => return std.fmt.parseInt(T, token, 10),
