@@ -320,29 +320,52 @@ pub const LinesIterator = struct {
     }
 };
 
+pub const OpenMode = enum { write, append };
+
 pub const FileWriter = struct {
     file: std.Io.File,
     buf: [4096]u8,
     writer: std.Io.File.Writer,
     closed: bool,
+    mode: OpenMode,
+    append_offset: u64,
 
-    fn init(file: std.Io.File) FileWriter {
+    fn init(file: std.Io.File, mode: OpenMode) !FileWriter {
         var self: FileWriter = undefined;
         self.file = file;
         self.buf = undefined;
         self.writer = std.Io.File.Writer.initStreaming(file, io, &self.buf);
         self.closed = false;
+        self.mode = mode;
+        self.append_offset = if (mode == .append) try file.length(io) else 0;
         return self;
     }
 
     pub fn write(self: *FileWriter, data: []const u8) !void {
-        try self.writer.interface.writeAll(data);
-        try self.writer.interface.flush();
+        switch (self.mode) {
+            .write => {
+                try self.writer.interface.writeAll(data);
+                try self.writer.interface.flush();
+            },
+            .append => {
+                try self.file.writePositionalAll(io, data, self.append_offset);
+                self.append_offset += data.len;
+            },
+        }
     }
 
     pub fn print(self: *FileWriter, comptime fmt: []const u8, fmt_args: anytype) !void {
-        try self.writer.interface.print(fmt, fmt_args);
-        try self.writer.interface.flush();
+        switch (self.mode) {
+            .write => {
+                try self.writer.interface.print(fmt, fmt_args);
+                try self.writer.interface.flush();
+            },
+            .append => {
+                const formatted = try std.fmt.allocPrint(arena_allocator.allocator(), fmt, fmt_args);
+                defer arena_allocator.allocator().free(formatted);
+                try self.write(formatted);
+            },
+        }
     }
 
     pub fn writeln(self: *FileWriter, data: []const u8) !void {
@@ -353,7 +376,9 @@ pub const FileWriter = struct {
     pub fn close(self: *FileWriter) void {
         if (self.closed) return;
         self.closed = true;
-        self.writer.interface.flush() catch {};
+        if (self.mode == .write) {
+            self.writer.interface.flush() catch {};
+        }
         self.file.close(io);
     }
 };
@@ -382,10 +407,13 @@ pub const fs = struct {
         };
     }
 
-    pub fn open(path: []const u8) !FileWriter {
+    pub fn open(path: []const u8, mode: OpenMode) !FileWriter {
         ensureInit();
-        const file = try std.Io.Dir.cwd().createFile(io, path, .{});
-        return FileWriter.init(file);
+        const file = switch (mode) {
+            .write => try std.Io.Dir.cwd().createFile(io, path, .{}),
+            .append => try std.Io.Dir.cwd().createFile(io, path, .{ .truncate = false }),
+        };
+        return try FileWriter.init(file, mode);
     }
 };
 

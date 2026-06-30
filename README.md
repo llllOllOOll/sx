@@ -96,10 +96,17 @@ const first = try sx.args.get(1);          // arg at index — null if not prese
 ### Filesystem
 ```zig
 const data = try sx.fs.read("foo.txt");         // read entire file
-try sx.fs.write("foo.txt", data);               // write to file
+try sx.fs.write("foo.txt", data);               // write to file (truncates)
 
 var iter = try sx.fs.lines("foo.txt");          // line iterator
 while (try iter.next()) |line| { ... }          // null on EOF
+
+// open for multiple writes
+var f = try sx.fs.open("foo.txt", .write);      // .write truncates, .append adds to end
+defer f.close();
+try f.write("raw bytes\n");
+try f.print("name: {s}, age: {d}\n", .{ name, age });
+try f.writeln("done!");
 ```
 
 ## Examples
